@@ -5,6 +5,7 @@ import pandas as pd
 from pandas import Series, DataFrame
 import numpy as np
 from IPython.display import display
+import csv
 
 def recommend(user_id=None, business_id=None, city=None, n=10):
     """
@@ -54,22 +55,16 @@ def pivot_ratings_friends(user_id, REVIEWS, CITIES, USERS, BUSINESSES):
     Return matrix containing all ratings of friends on businesses they have been to
     """
     users = find_friends(user_id, USERS)
-    businesses = [user_id]
-    # Zou je nog eens kunnen kijken naar het stukje code hieronder?
-    # ik kijk hier voor elke vriend van de betreffende gebruiker
+    users.append(user_id)
+    businesses = []
     for friend in users:
-        # en maak voor ze allemaal een lijst met businesses die ze gereviewed hebben
-        # de check_businesses functie werkt als je hem los test, maar als je hem hier aanroept blijft
-        # friends businesses een lege lijst. geen idee hoe dit komt maar als jij het niet 
-        # ziet kunnen we er ook morgen nog aan werken
         friends_businesses = check_businesses(friend, REVIEWS)
-        # vervolgens voeg ik ze allemaal toe aan een lijstje en de rest van het programma hebben we
-        # samen geschreven en getest
+        print(friends_businesses)
         for business in friends_businesses:
             businesses.append(business)
     businesses = list(set(businesses))
+    return
     pivot_data = pd.DataFrame(np.nan, columns=users, index=businesses, dtype=float)
-    return businesses
     for x in pivot_data:
         for y in pivot_data.index:
             pivot_data.loc[y][x] = get_rating(REVIEWS, x, y)
@@ -82,8 +77,8 @@ def find_friends(user_id, USERS):
     for city, users in USERS.items():
         for user in users:
             if user["user_id"] == user_id:
-                return [user['friends']]
-    raise IndexError(f"invalid username {user_id}")
+                friends = user["friends"].split()
+    return friends
 
 def check_businesses(user_id, REVIEWS):
     """
@@ -101,8 +96,8 @@ def check_businesses(user_id, REVIEWS):
 # print(f'The rating is {rate}')
 
 # friends = find_friends('MM4RJAeH6yuaN8oZDSt0RA', USERS)
-businesses = check_businesses('Z1wf19FVzvR57O0T-CdBYw', REVIEWS)
-# print(businesses)
+# businesses = check_businesses('Z1wf19FVzvR57O0T-CdBYw', REVIEWS)
+# print(friends)
 
-utility_matrix = pivot_ratings_friends('qSn38n1BpesAViuYCrdn8w', REVIEWS, CITIES, USERS, BUSINESSES)
-print(utility_matrix)
+utility_matrix = pivot_ratings_friends('8SSaCgmvsztEOg2CqeXxnw', REVIEWS, CITIES, USERS, BUSINESSES)
+# display(utility_matrix)
