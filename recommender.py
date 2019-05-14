@@ -59,11 +59,9 @@ def pivot_ratings_friends(user_id, REVIEWS, CITIES, USERS, BUSINESSES):
     businesses = []
     for friend in users:
         friends_businesses = check_businesses(friend, REVIEWS)
-        print(friends_businesses)
         for business in friends_businesses:
             businesses.append(business)
     businesses = list(set(businesses))
-    return
     pivot_data = pd.DataFrame(np.nan, columns=users, index=businesses, dtype=float)
     for x in pivot_data:
         for y in pivot_data.index:
@@ -96,8 +94,8 @@ def check_businesses(user_id, REVIEWS):
 # print(f'The rating is {rate}')
 
 # friends = find_friends('MM4RJAeH6yuaN8oZDSt0RA', USERS)
-# businesses = check_businesses('Z1wf19FVzvR57O0T-CdBYw', REVIEWS)
-# print(friends)
+# businesses = check_businesses('LisTsUqnQ5RoW6reg6hyWQ', REVIEWS)
+# print(businesses)
 
-utility_matrix = pivot_ratings_friends('8SSaCgmvsztEOg2CqeXxnw', REVIEWS, CITIES, USERS, BUSINESSES)
-# display(utility_matrix)
+utility_matrix = pivot_ratings_friends('LisTsUqnQ5RoW6reg6hyWQ', REVIEWS, CITIES, USERS, BUSINESSES)
+display(utility_matrix)
