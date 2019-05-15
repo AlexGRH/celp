@@ -35,6 +35,27 @@ def get_rating(REVIEWS, user_id, business_id):
                 return rating
     return np.nan
 
+def categories_city(city, BUSINESSES):
+    business_categories = pd.DataFrame()
+    for business in BUSINESSES[city]:
+        for categorie in business['categories'].split(','):
+            business_categories.loc[business['business_id'], categorie] = 1
+    business_categories = business_categories.fillna(0)
+    return business_categories
+
+def similarity_matrix_categories(matrix):
+    npu = matrix.values
+    m1 = npu @ npu.T
+    diag = np.diag(m1)
+    m2 = m1 / diag
+    m3 = np.minimum(m2, m2.T)
+    return pd.DataFrame(m3, index = matrix.index, columns = matrix.index)
+
+matrix = similarity_matrix_categories(categories_city('ambridge', BUSINESSES))
+display(matrix)
+
+
+
 
 def pivot_ratings(REVIEWS, CITIES, USERS, BUSINESSES):
     users = []
@@ -110,8 +131,8 @@ def check_businesses(user_id, REVIEWS):
 # businesses = check_businesses('LisTsUqnQ5RoW6reg6hyWQ', REVIEWS)
 # print(businesses)
 
-# utility_matrix = pivot_ratings_friends('QGgWWhEi5R4SLAKN-xwtNQ', REVIEWS, CITIES, USERS, BUSINESSES)
+# utility_matrix = pivot_ratings_friends('rCWrxuRC8_pfagpchtHp6A', REVIEWS, CITIES, USERS, BUSINESSES)
 # display(utility_matrix)
 
-# utility_matrix = pivot_ratings_city('sun city', REVIEWS, CITIES, USERS, BUSINESSES)
+# utility_matrix = pivot_ratings_city('ambridge', REVIEWS, CITIES, USERS, BUSINESSES)
 # display(utility_matrix)
