@@ -50,6 +50,19 @@ def pivot_ratings(REVIEWS, CITIES, USERS, BUSINESSES):
             pivot_data.loc[y][x] = get_rating(REVIEWS, x, y)
     return pivot_data
 
+def pivot_ratings_city(city, REVIEWS, CITIES, USERS, BUSINESSES):
+    users = []
+    businesses = []
+    for user in USERS[city]:
+        users.append(user['user_id'])
+    for business in BUSINESSES[city]:
+        businesses.append(business['business_id'])
+    pivot_data = pd.DataFrame(np.nan, columns=users, index=businesses, dtype=float)
+    for x in pivot_data:
+        for y in pivot_data.index:
+            pivot_data.loc[y][x] = get_rating(REVIEWS, x, y)
+    return pivot_data
+
 def pivot_ratings_friends(user_id, REVIEWS, CITIES, USERS, BUSINESSES):
     """
     Return matrix containing all ratings of friends on businesses they have been to
@@ -97,5 +110,8 @@ def check_businesses(user_id, REVIEWS):
 # businesses = check_businesses('LisTsUqnQ5RoW6reg6hyWQ', REVIEWS)
 # print(businesses)
 
-utility_matrix = pivot_ratings_friends('LisTsUqnQ5RoW6reg6hyWQ', REVIEWS, CITIES, USERS, BUSINESSES)
-display(utility_matrix)
+# utility_matrix = pivot_ratings_friends('QGgWWhEi5R4SLAKN-xwtNQ', REVIEWS, CITIES, USERS, BUSINESSES)
+# display(utility_matrix)
+
+# utility_matrix = pivot_ratings_city('sun city', REVIEWS, CITIES, USERS, BUSINESSES)
+# display(utility_matrix)
