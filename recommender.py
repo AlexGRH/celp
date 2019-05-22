@@ -20,14 +20,81 @@ def recommend(user_id=None, business_id=None, city=None, n=10):
             adress:str
         }
     """
-    if user_id and city:
+    # if the user accesses a business page, similar businesses will be loaded to the given business
+    if business_id:
+        city = lookup_city_business(business_id, CITIES)
+        similarity_matrix = similarity_matrix_categories(categories_city(BUSINESSES, city))
+        selection = select_businesses_similarity(similarity_matrix, business_id, city, n)
+        selection = lookup_businesses(selection, city, BUSINESSES)
+        return selection
+    # If a user accesses the home page, the recommendations for his personal preferences will be loaded
+    if user_id:
+        city = lookup_city_user(user_id, CITIES)
         predicted_ratings_categories = predict_ratings(similarity_matrix_categories(categories_city(BUSINESSES, city)), pivot_ratings_city(REVIEWS, city, USERS, BUSINESSES), to_predict_city(user_id, city, BUSINESSES))
         visited = visited_businesses(user_id, city, REVIEWS)
         selection = select_businesses(predicted_ratings_categories, visited, city, n)
+        selection = lookup_businesses(selection, city, BUSINESSES)
         return(selection)
-    if not city:
+    # if the homepage is loaded without an user id, random businesses will be returned
+    else:
         city = random.choice(CITIES)
+        while len(BUSINESSES[city]) < n:
+            city = random.choice(CITIES)
     return random.sample(BUSINESSES[city], n)
+
+def select_businesses_similarity(similarity_matrix, business_id, city, n):
+    """
+    Returns a selection of n businesses similar to the business id that is given, 
+    if there a not enough similar businesses there will be randomly selected businesses included. 
+    If there are too many similar businesses the system will randomly 
+    choose n amount of similar businesses
+    """
+    # create selection of similar businesses
+    selection = similarity_matrix.index[similarity_matrix[business_id] > 0.1].tolist()
+    # remove the business for which the selection is made
+    if business_id in selection:
+        selection.remove(business_id)
+    # make sure there are not too many businesses selected
+    while len(selection) > n:
+        random.shuffle(selection)
+        selection.pop()
+    # make sure there are sufficient businesses selected
+    while len(selection) < n:
+        k = n - len(selection)
+        random_choice = random.sample(BUSINESSES[city], k)
+        # expand selection if necessary
+        for choice in random_choice:
+            if choice['business_id'] not in selection:
+                selection.append(choice['business_id'])
+    return selection
+
+def lookup_city_user(user_id, CITIES):
+    """
+    lookup the city where an user is registered
+    """
+    for city in CITIES:
+        for user in USERS[city]:
+            if user['user_id'] == user_id:
+                return city
+
+def lookup_city_business(business_id, CITIES):
+    """
+    lookup the city where an business is registered
+    """
+    for city in CITIES:
+        for business in BUSINESSES[city]:
+            if business['business_id'] == business_id:
+                return city
+
+def lookup_businesses(selection, city, BUSINESSES):
+    """
+    Convert list of business ids to list of dictionaries containing the required business information
+    """
+    selection_complete = []
+    for business in BUSINESSES[city]:
+        if business['business_id'] in selection:
+            selection_complete.append({'business_id': business['business_id'], 'stars': business['stars'], 'name': business['name'], 'city': city, 'address': business['address']})
+    return selection_complete
 
 def visited_businesses(user_id, city, REVIEWS):
     """
@@ -45,13 +112,15 @@ def select_businesses(prediction_matrix, visited, city, n):
     insufficient positive predictions, the list will be expanded with random business choices. 
     """
     selection = []
+    # select the businesses for which the predicted rating is positive
     for index, row in prediction_matrix.iterrows():
         if row['predicted rating'] > 3.0 and row['business_id'] not in visited:
-            print(row['business_id'], row['predicted rating'])
             selection.append(row['business_id'])
+    # make sure selection is not too big
     while len(selection) > n:
         random.shuffle(selection)
         selection.pop()
+    # make sure selection is sufficient, if needed expand selection with random input
     while len(selection) < n:
         k = n - len(selection)
         random_choice = random.sample(BUSINESSES[city], k)
@@ -162,164 +231,3 @@ def predict_vectors(user_ratings, similarities):
     
     # compute a weighted average (i.e. neighborhood is all) 
     return np.dot(relevant_ratings, similarities_s)/norm
-
-predicted_ratings_categories = predict_ratings(similarity_matrix_categories(categories_city(BUSINESSES, 'ambridge')), pivot_ratings_city(REVIEWS, 'ambridge', USERS, BUSINESSES), to_predict_city('v2hPERrqGGxsfmT293q4mA', 'ambridge', BUSINESSES))
-display(predicted_ratings_categories)
-recommendations = recommend(user_id = 'v2hPERrqGGxsfmT293q4mA', city = 'ambridge', n = 10)
-print(recommendations)
-
-def categories(BUSINESSES, CITIES):
-    business_categories = pd.DataFrame()
-    for city in CITIES:
-        for business in BUSINESSES[city]:
-            try:
-                for categorie in business['categories'].split(','):
-                    business_categories.loc[business['business_id'], categorie] = 1
-            except:
-                pass
-    business_categories = business_categories.fillna(0)
-    return business_categories
-
-def to_predict(user_id, CITIES, BUSINESSES):
-    businesses = []
-    for city in CITIES:
-        for business in BUSINESSES[city]:
-            businesses.append(business['business_id'])
-    to_predict_df = pd.DataFrame(columns=['user_id', 'business_id'])
-    to_predict_df.loc[:, 'business_id'] = businesses
-    to_predict_df = to_predict_df.fillna(user_id)
-    return to_predict_df
-
-def pivot_ratings(REVIEWS, CITIES, USERS, BUSINESSES):
-    users = []
-    businesses = []
-    for city in CITIES:
-        for user in USERS[city]:
-            users.append(user['user_id'])
-        for business in BUSINESSES[city]:
-            businesses.append(business['business_id'])
-    pivot_data = pd.DataFrame(np.nan, columns=users, index=businesses, dtype=float)
-    for x in pivot_data:
-        for y in pivot_data.index:
-            pivot_data.loc[y][x] = get_rating(REVIEWS, x, y)
-    return pivot_data
-
-
-
-
-def cosine_distance(matrix, id1, id2):
-    """Compute cosine distance between two rows."""    
-    # only take the features that have values for both id1 and id2
-    selected_features = matrix.loc[id1].notna() & matrix.loc[id2].notna()
-    
-    # if no matching features, return NaN
-    if not selected_features.any():
-        return np.nan
-    
-    # get the features from the matrix
-    features1 = matrix.loc[id1][selected_features]
-    features2 = matrix.loc[id2][selected_features]
-    
-    # compute the distances for the features
-    distances = Series()
-    sqrt1 = 0
-    sqrt2 = 0
-    for feature in features1.index:
-        if feature in features2.index or features1[feature]!=0.0 or features1[feature]!=0.0:
-            distances.loc[feature] = features1[feature] * features2[feature]
-            sqrt1 += features1[feature]**2
-            sqrt2 += features2[feature]**2
-    distsum = distances.sum()
-    if distsum == 0.0:
-        return 0.0
-    sqrtval = math.sqrt(sqrt1) * math.sqrt(sqrt2)
-    #     print(distsum, sqrt1, sqrt2, sqrtval)
-    total = distsum / sqrtval
-    return total
-
-def cosine_similarity(matrix, id1, id2):
-    """Compute cosine similarity between two rows."""
-    # compute distance
-    distance = cosine_distance(matrix, id1, id2)
-    
-    # if no distance could be computed (no shared features) return a similarity of 0
-    if distance is np.nan:
-        return 0
-    
-    # else return similarity
-    return  distance
-
-def create_similarity_matrix_cosine(matrix):
-    """ creates the similarity matrix based on cosine similarity """
-    similarity_matrix = pd.DataFrame(0, index=matrix.index, columns=matrix.index, dtype=float)
-    # select and fill every cell of matrix
-    for movieId_ver in similarity_matrix:
-        for movieId_hor in similarity_matrix.index:
-            if movieId_ver == movieId_hor:
-                similarity_matrix.loc[movieId_hor][movieId_ver] = 1.0
-            else:
-                similarity_matrix.loc[movieId_hor][movieId_ver] = cosine_similarity(matrix, movieId_ver, movieId_hor)
-    return similarity_matrix
-
-# df_similarity_ratings = create_similarity_matrix_cosine(pivot_ratings(REVIEWS, CITIES, USERS, BUSINESSES))
-# display(df_similarity_ratings)
-
-
-
-
-
-
-
-
-def pivot_ratings_friends(user_id, REVIEWS, CITIES, USERS, BUSINESSES):
-    """
-    Return matrix containing all ratings of friends on businesses they have been to
-    """
-    users = find_friends(user_id, USERS)
-    users.append(user_id)
-    businesses = []
-    for friend in users:
-        friends_businesses = check_businesses(friend, REVIEWS)
-        for business in friends_businesses:
-            businesses.append(business)
-    businesses = list(set(businesses))
-    pivot_data = pd.DataFrame(np.nan, columns=users, index=businesses, dtype=float)
-    for x in pivot_data:
-        for y in pivot_data.index:
-            pivot_data.loc[y][x] = get_rating(REVIEWS, x, y)
-    return pivot_data
-
-def find_friends(user_id, USERS):
-    """
-    return list of friends for a given user id
-    """
-    for city, users in USERS.items():
-        for user in users:
-            if user["user_id"] == user_id:
-                friends = user["friends"].split()
-    return friends
-
-def check_businesses(user_id, REVIEWS):
-    """
-    returns a list of businesses a user has placed reviews for
-    """
-    businesses = []
-    for city, reviews in REVIEWS.items():
-        for review in reviews:
-            if review["user_id"] == user_id:
-                businesses.append(review['business_id'])
-    return businesses
-
-# rate = get_rating(REVIEWS, 'DAIpUGIsY71noX0wNuc27w', 'PNzir9TtJAD7U41GwR98-w')
-# print(REVIEWS['sun city'][0])
-# print(f'The rating is {rate}')
-
-# friends = find_friends('MM4RJAeH6yuaN8oZDSt0RA', USERS)
-# businesses = check_businesses('LisTsUqnQ5RoW6reg6hyWQ', REVIEWS)
-# print(businesses)
-
-# utility_matrix = pivot_ratings_friends('rCWrxuRC8_pfagpchtHp6A', REVIEWS, CITIES, USERS, BUSINESSES)
-# display(utility_matrix)
-
-# utility_matrix = pivot_ratings_city('ambridge', REVIEWS, CITIES, USERS, BUSINESSES)
-# display(utility_matrix)
